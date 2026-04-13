@@ -10,10 +10,10 @@ This will run the [new self-hosted github actions runners](https://help.github.c
 This fork includes a self-contained local path for Komodo proof runs:
 
 1. Copy `.env.example` to `.env` and fill in the repo-scoped values.
-2. Build the single image:
-   ```bash
-   docker build -t komodo-github-actions-runner:komodo-poc -f Dockerfile .
-   ```
+2. Build the single image that compose uses by default:
+    ```bash
+    docker build -t komodo-github-actions-runner:local -f Dockerfile .
+    ```
 3. Start the runner:
    ```bash
    docker compose up -d --build
