@@ -10,6 +10,8 @@ This will run the [new self-hosted github actions runners](https://help.github.c
 This fork includes a self-contained local path for Komodo proof runs:
 
 1. Copy `.env.example` to `.env` and fill in the repo-scoped values.
+   If you use GitHub App auth, set `APP_PRIVATE_KEY` as a single `.env` line
+   with literal `\n` escapes for newlines; do not paste a raw multiline PEM.
 2. Build the single image that compose uses by default:
     ```bash
     docker build -t komodo-github-actions-runner:local -f Dockerfile .
@@ -62,7 +64,7 @@ Proof-safe flow:
 2. Confirm the job is queued for the unique label.
 3. Only then start the matching runner.
 
-This keeps the job targeted to the new Komodo/local runner instead of letting the other MRI2CT self-hosted runner pick it up first.
+This keeps the job targeted to the new Komodo/local runner instead of letting the other MRI2CT self-hosted runner pick it up first. The unique proof label only isolates runner selection; because this compose setup still bind-mounts `/var/run/docker.sock` and runs with `RUN_AS_ROOT=true` by default, only trusted workflows should be allowed to reach it.
 
 ## Docker Artifacts ##
 
@@ -88,7 +90,7 @@ These containers are built via Github actions that [copy the dockerfile](https:/
 | `RANDOM_RUNNER_SUFFIX` | Boolean to use a randomized runner name suffix (preceded by `RUNNER_NAME_PREFIX`). Will use a 13 character random string by default. If set to a value other than true and `RUNNER_NAME_PREFIX` is set to an empty string, it will attempt to use the contents of `/etc/hostname` or fall back to a random string if the file does not exist or is empty. Note: will be overridden by `RUNNER_NAME` if provided. Defaults to `true`. |
 | `ACCESS_TOKEN` | A [github PAT](https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token) to use to generate `RUNNER_TOKEN` dynamically at container start. Not using this requires a valid `RUNNER_TOKEN` |
 | `APP_ID` | The github application ID. Must be paired with `APP_PRIVATE_KEY` and should not be used with `ACCESS_TOKEN` or `RUNNER_TOKEN` |
-| `APP_PRIVATE_KEY` | The github application private key. Must be paired with `APP_ID` and should not be used with `ACCESS_TOKEN` or `RUNNER_TOKEN` |
+| `APP_PRIVATE_KEY` | The github application private key. Must be paired with `APP_ID` and should not be used with `ACCESS_TOKEN` or `RUNNER_TOKEN`. In `.env`, keep it on one line and use literal `\n` escapes for line breaks. |
 | `APP_LOGIN` | The github application login id. Can be paired with `APP_ID` and `APP_PRIVATE_KEY` if default value extracted from `REPO_URL` or `ORG_NAME` is not correct. Note that no default is present when `RUNNER_SCOPE` is 'enterprise'. |
 | `RUNNER_SCOPE` | The scope the runner will be registered on. Valid values are `repo`, `org` and `ent`. For 'org' and 'enterprise', `ACCESS_TOKEN` is required and `REPO_URL` is unnecessary. If 'org', requires `ORG_NAME`; if 'ent', requires `ENTERPRISE_NAME`. Default is 'repo'. |
 | `ORG_NAME` | The organization name for the runner to register under. Requires `RUNNER_SCOPE` to be 'org'. No default value. |
@@ -108,7 +110,7 @@ These containers are built via Github actions that [copy the dockerfile](https:/
 | `NO_DEFAULT_LABELS` | Optional environment variable to disable adding the default self-hosted, platform, and architecture labels to the runner. Any value is considered truthy and will disable them. |
 | `DEBUG_ONLY` | Optional boolean to print debug output but not run any actual registration or runner commands. Used in CI and testing. Default: false |
 | `DEBUG_OUTPUT` | Optional boolean to print additional debug output. Default: false |
-| `UNSET_CONFIG_VARS` | Optional flag to unset all configuration environment variables after runner setup but before starting the runner. This prevents these variables from leaking into the workflow environment. Set to 'true' to enable. Defaults to 'false' for backward compatibility. |
+| `UNSET_CONFIG_VARS` | Optional flag to unset all configuration environment variables after runner setup but before starting the runner. This prevents these variables from leaking into the workflow environment. Set to `true` to enable. Defaults to `false` in the compose/local path so shutdown can still deregister the runner cleanly; enabling it reduces env leakage, but also removes those values from the workflow environment. |
 
 ### Repo-scoped proof requirements ###
 
