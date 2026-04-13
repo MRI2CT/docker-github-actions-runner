@@ -45,6 +45,7 @@ source "$scripts_dir/tools.sh"
 # shellcheck source=/dev/null
 source "$scripts_dir/config.sh"
 
+bootstrap_apt_https
 apt-get update
 install_essentials
 configure_sources

@@ -1,6 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+function bootstrap_apt_https() {
+  if [[ -f /etc/apt/sources.list ]]; then
+    # Komodo blocks Ubuntu apt over plain HTTP, so bootstrap the default mirrors to HTTPS.
+    sed -i \
+      -e 's|http://archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' \
+      -e 's|http://security.ubuntu.com/ubuntu|https://security.ubuntu.com/ubuntu|g' \
+      /etc/apt/sources.list
+  fi
+}
+
 function configure_git() {
   # shellcheck source=/dev/null
   source /etc/os-release
@@ -15,7 +25,9 @@ function configure_git() {
     local KEYRING_FILE="/usr/share/keyrings/git-core-focal.gpg"
     gpg --keyserver hkps://keyserver.ubuntu.com --recv-keys ${GIT_CORE_FOCAL_PPA_KEY}
     gpg --export ${GIT_CORE_FOCAL_PPA_KEY} | gpg --dearmor -o "${KEYRING_FILE}"
-    echo deb [signed-by=${KEYRING_FILE}] http://ppa.launchpad.net/git-core/ppa/ubuntu focal main>/etc/apt/sources.list.d/git-core.list
+    # launchpadcontent.net provides the HTTPS-backed PPA endpoint for Launchpad.
+    echo "deb [signed-by=${KEYRING_FILE}] https://ppa.launchpadcontent.net/git-core/ppa/ubuntu focal main" \
+      > /etc/apt/sources.list.d/git-core.list
 
   fi
 }
