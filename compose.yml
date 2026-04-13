@@ -1,0 +1,41 @@
+services:
+  runner:
+    container_name: ${COMPOSE_CONTAINER_NAME:-komodo-github-runner}
+    image: ${COMPOSE_IMAGE_NAME:-komodo-github-actions-runner:local}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      ACCESS_TOKEN: ${ACCESS_TOKEN:-}
+      APP_ID: ${APP_ID:-}
+      APP_PRIVATE_KEY: ${APP_PRIVATE_KEY:-}
+      APP_LOGIN: ${APP_LOGIN:-}
+      RUNNER_TOKEN: ${RUNNER_TOKEN:-}
+      RUNNER_SCOPE: ${RUNNER_SCOPE:-repo}
+      REPO_URL: ${REPO_URL:-}
+      ORG_NAME: ${ORG_NAME:-}
+      ENTERPRISE_NAME: ${ENTERPRISE_NAME:-}
+      RUNNER_NAME: ${RUNNER_NAME:-}
+      RUNNER_NAME_PREFIX: ${RUNNER_NAME_PREFIX:-github-runner}
+      RANDOM_RUNNER_SUFFIX: ${RANDOM_RUNNER_SUFFIX:-false}
+      RUNNER_WORKDIR: ${RUNNER_WORKDIR:?set RUNNER_WORKDIR in .env}
+      RUNNER_GROUP: ${RUNNER_GROUP:-Default}
+      RUNNER_LABELS: ${RUNNER_LABELS:-}
+      LABELS: ${LABELS:-}
+      GITHUB_HOST: ${GITHUB_HOST:-github.com}
+      RUN_AS_ROOT: ${RUN_AS_ROOT:-true}
+      DISABLE_AUTOMATIC_DEREGISTRATION: ${DISABLE_AUTOMATIC_DEREGISTRATION:-false}
+      CONFIGURED_ACTIONS_RUNNER_FILES_DIR: ${CONFIGURED_ACTIONS_RUNNER_FILES_DIR:-}
+      EPHEMERAL: ${EPHEMERAL:-}
+      DISABLE_AUTO_UPDATE: ${DISABLE_AUTO_UPDATE:-}
+      START_DOCKER_SERVICE: ${START_DOCKER_SERVICE:-false}
+      NO_DEFAULT_LABELS: ${NO_DEFAULT_LABELS:-}
+      DEBUG_ONLY: ${DEBUG_ONLY:-false}
+      DEBUG_OUTPUT: ${DEBUG_OUTPUT:-false}
+      UNSET_CONFIG_VARS: ${UNSET_CONFIG_VARS:-false}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${RUNNER_WORKDIR:?set RUNNER_WORKDIR in .env}:${RUNNER_WORKDIR:?set RUNNER_WORKDIR in .env}
