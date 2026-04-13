@@ -54,7 +54,7 @@ Currently runners [do not support containerd](https://github.com/actions/runner/
 
 ### Komodo proof isolation ###
 
-For a repo-scoped proof, use a unique label such as `mri2ct-test-repo-komodo-proof` in `LABELS` (and/or `RUNNER_LABELS` if you are wiring the same value elsewhere).
+For a repo-scoped proof, use a unique label such as `mri2ct-test-repo-komodo-proof` in `RUNNER_LABELS`. `LABELS` is still read as a fallback, but `RUNNER_LABELS` is the preferred setting in this fork.
 
 Proof-safe flow:
 
@@ -93,7 +93,8 @@ These containers are built via Github actions that [copy the dockerfile](https:/
 | `RUNNER_SCOPE` | The scope the runner will be registered on. Valid values are `repo`, `org` and `ent`. For 'org' and 'enterprise', `ACCESS_TOKEN` is required and `REPO_URL` is unnecessary. If 'org', requires `ORG_NAME`; if 'ent', requires `ENTERPRISE_NAME`. Default is 'repo'. |
 | `ORG_NAME` | The organization name for the runner to register under. Requires `RUNNER_SCOPE` to be 'org'. No default value. |
 | `ENTERPRISE_NAME` | The enterprise name for the runner to register under. Requires `RUNNER_SCOPE` to be 'enterprise'. No default value. |
-| `LABELS` | A comma separated string to indicate the labels. Default is 'default' |
+| `RUNNER_LABELS` | A comma separated string to indicate the labels. Preferred over `LABELS` in this fork. Default is 'default' |
+| `LABELS` | Legacy label setting; read as a fallback when `RUNNER_LABELS` is not set. |
 | `REPO_URL` | If using a non-organization runner this is the full repository url to register under such as 'https://github.com/myoung34/repo' |
 | `RUNNER_TOKEN` | If not using a PAT for `ACCESS_TOKEN` this will be the runner token provided by the Add Runner UI (a manual process). Note: This token is short lived and will change frequently. `ACCESS_TOKEN` is likely preferred. |
 | `RUNNER_WORKDIR` | The working directory for the runner. Runners on the same host should not share this directory. Default is '/_work'. This must match the source path for the bind-mounted volume at RUNNER_WORKDIR, in order for container actions to access files. |
@@ -117,7 +118,7 @@ For the Komodo/local path in this fork, the minimum repo-scoped settings are:
 - `REPO_URL=https://github.com/MRI2CT/<repo>`
 - `ACCESS_TOKEN` **or** `RUNNER_TOKEN`
 - `RUNNER_WORKDIR` set to a host path that exists on the machine
-- `LABELS` set to the unique proof label, for example `mri2ct-test-repo-komodo-proof`
+- `RUNNER_LABELS` set to the unique proof label, for example `mri2ct-test-repo-komodo-proof`
 
 ### Host mount requirements for Docker jobs ###
 
