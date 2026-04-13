@@ -5,7 +5,23 @@ Docker Github Actions Runner
 
 This will run the [new self-hosted github actions runners](https://help.github.com/en/actions/automating-your-workflow-with-github-actions/hosting-your-own-runners).
 
-## Quick-Start (Examples and Usage) ##
+## Komodo / local quick-start ##
+
+This fork includes a self-contained local path for Komodo proof runs:
+
+1. Copy `.env.example` to `.env` and fill in the repo-scoped values.
+2. Build the single image:
+   ```bash
+   docker build -t komodo-github-actions-runner:komodo-poc -f Dockerfile .
+   ```
+3. Start the runner:
+   ```bash
+   docker compose up -d --build
+   ```
+4. Stop it when finished:
+   ```bash
+   docker compose down
+   ```
 
 Please see [the wiki](https://github.com/myoung34/docker-github-actions-runner/wiki/Usage)
 Please read [the contributing guidelines](https://github.com/myoung34/docker-github-actions-runner/blob/master/CONTRIBUTING.md)
@@ -35,6 +51,18 @@ Also, some GitHub Actions Workflow features, like [Job Services](https://docs.gi
 ### Containerd Support ###
 
 Currently runners [do not support containerd](https://github.com/actions/runner/issues/1265)
+
+### Komodo proof isolation ###
+
+For a repo-scoped proof, use a unique label such as `mri2ct-test-repo-komodo-proof` in `LABELS` (and/or `RUNNER_LABELS` if you are wiring the same value elsewhere).
+
+Proof-safe flow:
+
+1. Push the workflow first.
+2. Confirm the job is queued for the unique label.
+3. Only then start the matching runner.
+
+This keeps the job targeted to the new Komodo/local runner instead of letting the other MRI2CT self-hosted runner pick it up first.
 
 ## Docker Artifacts ##
 
@@ -80,6 +108,22 @@ These containers are built via Github actions that [copy the dockerfile](https:/
 | `DEBUG_ONLY` | Optional boolean to print debug output but not run any actual registration or runner commands. Used in CI and testing. Default: false |
 | `DEBUG_OUTPUT` | Optional boolean to print additional debug output. Default: false |
 | `UNSET_CONFIG_VARS` | Optional flag to unset all configuration environment variables after runner setup but before starting the runner. This prevents these variables from leaking into the workflow environment. Set to 'true' to enable. Defaults to 'false' for backward compatibility. |
+
+### Repo-scoped proof requirements ###
+
+For the Komodo/local path in this fork, the minimum repo-scoped settings are:
+
+- `RUNNER_SCOPE=repo`
+- `REPO_URL=https://github.com/MRI2CT/<repo>`
+- `ACCESS_TOKEN` **or** `RUNNER_TOKEN`
+- `RUNNER_WORKDIR` set to a host path that exists on the machine
+- `LABELS` set to the unique proof label, for example `mri2ct-test-repo-komodo-proof`
+
+### Host mount requirements for Docker jobs ###
+
+The compose file mounts `/var/run/docker.sock` and binds `RUNNER_WORKDIR` to the same absolute path inside the container. Keep both in place if the workflow needs Docker jobs, Docker builds, or writable runner workspaces.
+
+The host path used for `RUNNER_WORKDIR` must already exist and should be dedicated to this runner so multiple runners do not share the same work directory.
 
 ## Tests ##
 
