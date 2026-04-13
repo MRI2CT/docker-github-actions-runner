@@ -1,10 +1,8 @@
-FROM alpine:3.21 AS ca-certs
-
 FROM ubuntu:focal
 LABEL maintainer="myoung34@my.apsu.edu"
 
 # Bootstrap HTTPS apt access before Ubuntu installs its own ca-certificates package.
-COPY --from=ca-certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+COPY --from=alpine:3.21 /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 
 ENV LANG=en_US.UTF-8
 ENV LANGUAGE=en_US.UTF-8

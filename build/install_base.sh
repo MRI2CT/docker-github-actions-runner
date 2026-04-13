@@ -46,6 +46,11 @@ source "$scripts_dir/tools.sh"
 source "$scripts_dir/config.sh"
 
 bootstrap_apt_https
+if id -u runner >/dev/null 2>&1; then
+  echo "runner user already present; skipping base installation"
+  exit 0
+fi
+
 apt-get update
 install_essentials
 configure_sources
