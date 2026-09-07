@@ -11,7 +11,7 @@ ENV AGENT_TOOLSDIRECTORY=/opt/hostedtoolcache
 ENV DEBIAN_FRONTEND=noninteractive
 RUN mkdir -p /opt/hostedtoolcache
 
-ARG GH_RUNNER_VERSION="2.333.1"
+ARG GH_RUNNER_VERSION="2.337.0"
 
 ARG TARGETPLATFORM
 
