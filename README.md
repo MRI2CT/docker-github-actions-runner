@@ -25,6 +25,12 @@ This fork includes a self-contained local path for Komodo proof runs:
    docker compose down
    ```
 
+To run more than one runner, set `RUNNER_REPLICAS` in `.env` (e.g. `RUNNER_REPLICAS=3`)
+before starting — Compose scales the single `runner` service to that many containers
+automatically. See "Scaling the fleet" below for details. Because replicas can't share a
+fixed container name, containers are now named automatically by Compose (e.g.
+`docker-github-actions-runner-runner-1`) instead of a fixed `COMPOSE_CONTAINER_NAME`.
+
 Please see [the wiki](https://github.com/myoung34/docker-github-actions-runner/wiki/Usage)
 Please read [the contributing guidelines](https://github.com/myoung34/docker-github-actions-runner/blob/master/CONTRIBUTING.md)
 
@@ -64,7 +70,51 @@ Proof-safe flow:
 2. Confirm the job is queued for the unique label.
 3. Only then start the matching runner.
 
-This keeps the job targeted to the new Komodo/local runner instead of letting the other MRI2CT self-hosted runner pick it up first. The unique proof label only isolates runner selection; because this compose setup still bind-mounts `/var/run/docker.sock` and runs with `RUN_AS_ROOT=true` by default, only trusted workflows should be allowed to reach it.
+This keeps the job targeted to the new Komodo/local runner instead of letting the other MRI2CT self-hosted runner pick it up first. The unique proof label only isolates runner selection; because this compose setup still bind-mounts `/var/run/docker.sock` and runs with `RUN_AS_ROOT=true` by default, only trusted workflows should be allowed to reach it. This applies equally to every replica when running more than one (see "Scaling the fleet" below) — they all share the same label and the same safety caveat.
+
+### Scaling the fleet ###
+
+Scale within a host with **one variable**: set `RUNNER_REPLICAS` in `.env` to the
+desired count, then `docker compose up -d` (or `--build` the first time). Compose's
+`deploy.replicas` spins up that many containers from the single `runner` service — no
+per-replica service blocks to write or maintain.
+
+Two things make this safe without any per-replica configuration:
+
+- **Runner names**: leave `RUNNER_NAME` blank (the default in `.env.example`). With
+  `RANDOM_RUNNER_SUFFIX=true`, each replica generates its own random suffix at boot, so
+  names never collide. Only set a fixed `RUNNER_NAME` when `RUNNER_REPLICAS=1`.
+- **Work directories**: `RUNNER_WORKDIR` now names a **shared parent directory for the
+  whole fleet**, bind-mounted identically into every replica. `fleet-entrypoint.sh`
+  (the container's entrypoint in this compose setup) carves out a uniquely-named
+  subdirectory per replica — named after that container's own hostname, which Docker
+  assigns uniquely per replica — before the runner configures or starts. Each replica's
+  actual workdir is still a real, identical host==container path (it's nested inside
+  the shared mount), so container-action jobs that mount `$PWD` keep working exactly as
+  documented below, and concurrent jobs on different replicas never collide.
+
+Once one host's CPU/IO is saturated, prefer adding another Komodo-managed host over
+stacking many replicas on a single one — each additional runner replica still
+contends for the same host's Docker daemon, disk, and network. (A larger, org-scoped,
+multi-server version of this is sketched in `INTEGRATION.md`, not yet executed.)
+
+### uv package-manager caching ###
+
+The image ships with [`uv`](https://docs.astral.sh/uv/) preinstalled, and this compose
+setup mounts a persistent host directory for its cache, shared by every replica in the
+fleet:
+
+- `UV_CACHE_DIR` — fixed container-side path (`/opt/uv-cache`), set automatically; not
+  something you configure.
+- `UV_CACHE_DIR_HOST` — the host-side path backing it (`.env`), must already exist.
+  Unlike `RUNNER_WORKDIR`, this **should** be the same single directory shared by every
+  replica — `uv`'s cache is designed for safe concurrent access, and sharing it is what
+  makes repeat installs fast across the whole fleet.
+
+Any workflow step that runs `uv sync`, `uv pip install`, etc. benefits automatically —
+no workflow changes required. (These two variables aren't in the "Environment
+Variables" table below since they're consumed by `uv` inside job steps, not by
+`entrypoint.sh`.)
 
 ## Docker Artifacts ##
 
@@ -119,14 +169,15 @@ For the Komodo/local path in this fork, the minimum repo-scoped settings are:
 - `RUNNER_SCOPE=repo`
 - `REPO_URL=https://github.com/MRI2CT/<repo>`
 - `ACCESS_TOKEN` **or** `RUNNER_TOKEN`
-- `RUNNER_WORKDIR` set to a host path that exists on the machine
+- `RUNNER_WORKDIR` set to a host path that exists on the machine (this is a shared parent directory for the whole fleet — see "Scaling the fleet" above)
+- `UV_CACHE_DIR_HOST` set to a host path that exists on the machine (also shared by the whole fleet)
 - `RUNNER_LABELS` set to the unique proof label, for example `mri2ct-test-repo-komodo-proof`
 
 ### Host mount requirements for Docker jobs ###
 
 The compose file mounts `/var/run/docker.sock` and binds `RUNNER_WORKDIR` to the same absolute path inside the container. Keep both in place if the workflow needs Docker jobs, Docker builds, or writable runner workspaces.
 
-The host path used for `RUNNER_WORKDIR` must already exist and should be dedicated to this runner so multiple runners do not share the same work directory.
+The host path used for `RUNNER_WORKDIR` must already exist. Unlike a typical single-runner setup, it is deliberately **shared** across every replica in the fleet — `fleet-entrypoint.sh` gives each replica its own subdirectory underneath it at startup (see "Scaling the fleet" above), so replicas never write into the same subdirectory even though the top-level mount is shared. `UV_CACHE_DIR_HOST` is also shared across every replica, by design.
 
 ## Tests ##
 

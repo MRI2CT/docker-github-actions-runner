@@ -1,11 +1,20 @@
 services:
   runner:
-    container_name: ${COMPOSE_CONTAINER_NAME:-komodo-github-runner}
     image: ${COMPOSE_IMAGE_NAME:-komodo-github-actions-runner:local}
     build:
       context: .
       dockerfile: Dockerfile
     restart: unless-stopped
+    # Fleet size: scale with a single variable (RUNNER_REPLICAS in .env), no
+    # per-replica service blocks needed. See fleet-entrypoint.sh + the
+    # RUNNER_WORKDIR volume below for how replicas avoid colliding.
+    deploy:
+      replicas: ${RUNNER_REPLICAS:-1}
+    # Overriding entrypoint drops the image's default CMD unless we restate
+    # it here explicitly (Docker/Compose only merge entrypoint+CMD when
+    # neither is overridden) -- keep this in sync with Dockerfile's CMD.
+    entrypoint: ["/fleet-entrypoint.sh"]
+    command: ["./bin/Runner.Listener", "run", "--startuptype", "service"]
     env_file:
       - .env
     environment:
@@ -20,7 +29,7 @@ services:
       ENTERPRISE_NAME: ${ENTERPRISE_NAME:-}
       RUNNER_NAME: ${RUNNER_NAME:-}
       RUNNER_NAME_PREFIX: ${RUNNER_NAME_PREFIX:-github-runner}
-      RANDOM_RUNNER_SUFFIX: ${RANDOM_RUNNER_SUFFIX:-false}
+      RANDOM_RUNNER_SUFFIX: ${RANDOM_RUNNER_SUFFIX:-true}
       RUNNER_WORKDIR: ${RUNNER_WORKDIR:?set RUNNER_WORKDIR in .env}
       RUNNER_GROUP: ${RUNNER_GROUP:-Default}
       RUNNER_LABELS: ${RUNNER_LABELS:-}
@@ -36,6 +45,16 @@ services:
       DEBUG_ONLY: ${DEBUG_ONLY:-false}
       DEBUG_OUTPUT: ${DEBUG_OUTPUT:-false}
       UNSET_CONFIG_VARS: ${UNSET_CONFIG_VARS:-false}
+      # Consumed by `uv` inside job steps (not by entrypoint.sh). Fixed
+      # container-side path; only the host side is configurable, below.
+      UV_CACHE_DIR: /opt/uv-cache
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+      # Shared by every replica; uv's cache is safe for concurrent access.
+      - ${UV_CACHE_DIR_HOST:?set UV_CACHE_DIR_HOST in .env}:/opt/uv-cache
+      # Shared parent dir for the whole fleet, bind-mounted at an identical
+      # host==container path (required for container actions to resolve host
+      # paths correctly). fleet-entrypoint.sh carves out a uniquely-named
+      # subdirectory per replica before the runner ever starts, so concurrent
+      # jobs on different replicas never collide despite the shared mount.
       - ${RUNNER_WORKDIR:?set RUNNER_WORKDIR in .env}:${RUNNER_WORKDIR:?set RUNNER_WORKDIR in .env}

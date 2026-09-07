@@ -18,3 +18,7 @@ command:
             - ""
         stderr: ""
         timeout: 2000
+file:
+    /fleet-entrypoint.sh:
+        exists: true
+        filetype: file

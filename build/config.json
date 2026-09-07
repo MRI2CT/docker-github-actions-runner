@@ -105,6 +105,13 @@
       ]
     },
     {
+      "category": "uv",
+      "source": "script",
+      "packages": [
+        "uv"
+      ]
+    },
+    {
       "category": "yq",
       "source": "script",
       "packages": [
