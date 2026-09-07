@@ -110,6 +110,17 @@ function install_powershell() {
   ln -s /opt/powershell/pwsh /usr/bin/pwsh
 }
 
+function install_uv() {
+  local UV_VERSION
+
+  UV_VERSION=$(curl -sL -H "Accept: application/vnd.github+json" \
+    https://api.github.com/repos/astral-sh/uv/releases/latest \
+      | jq -r '.tag_name' | sed 's/^v//g')
+
+  curl -LsSf "https://astral.sh/uv/${UV_VERSION}/install.sh" \
+    | env UV_INSTALL_DIR="/usr/local/bin" UV_NO_MODIFY_PATH="1" sh
+}
+
 function install_tools() {
   local function_name
   # shellcheck source=/dev/null

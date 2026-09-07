@@ -28,8 +28,8 @@ RUN bash /actions-runner/install_actions.sh ${GH_RUNNER_VERSION} ${TARGETPLATFOR
   && rm /actions-runner/install_actions.sh \
   && chown runner /_work /actions-runner /opt/hostedtoolcache
 
-COPY token.sh entrypoint.sh app_token.sh /
-RUN chmod +x /token.sh /entrypoint.sh /app_token.sh
+COPY token.sh entrypoint.sh app_token.sh fleet-entrypoint.sh /
+RUN chmod +x /token.sh /entrypoint.sh /app_token.sh /fleet-entrypoint.sh
 
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["./bin/Runner.Listener", "run", "--startuptype", "service"]

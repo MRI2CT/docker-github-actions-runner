@@ -45,6 +45,10 @@ package:
         installed: true
     {{ end }}
 file:
+  /usr/local/bin/uv:
+    exists: true
+  /usr/local/bin/uvx:
+    exists: true
   /usr/bin/gh:
     exists: true
   /usr/bin/nodejs:
