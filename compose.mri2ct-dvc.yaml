@@ -9,12 +9,16 @@
 #    `dvc pull` directly on the runner WITHOUT a registry/S3 fallback
 #    (mri2ct's bundles.yml, reg2d3d-api.yml).
 #
-# 2. /projects/Mri2ct/ssd -- holds the shared, prebuilt uv CI environment that
-#    ci.yml points `UV_PROJECT_ENVIRONMENT` at (via `vars.CI_UV_ENV_NAME`,
-#    currently .../envs/env_ci_312). It is ~15 GB, so recreating it per host
-#    per run is not practical; the runner needs to see the real one. Without
-#    this mount, ci.yml's build job fails at "Pull DVC Data" with
-#    `dvc: command not found`, because dvc lives in that environment.
+# 2. /projects/Mri2ct/ssd -- shared project scratch/data on SSD. This is also
+#    where the prebuilt uv CI environment lives (.../envs/env_ci_312, used by
+#    the non-fleet `mri2ct-server` runner via `vars.CI_UV_ENV_NAME`). The fleet
+#    deliberately does NOT reuse that env -- see (3) -- so as of ci.yml running
+#    on the fleet nothing here needs this mount any more. Kept because it is
+#    cheap exposure and other mri2ct workflows may move over next; drop it if
+#    you want the fleet to have no reachable path into the shared SSD at all.
+#
+# 3. /srv/github-runners/uv-envs -- per-host home for uv project environments
+#    the fleet builds itself. See the volume comment below for why.
 #
 # Most repos/workflows need neither, which is why this is a separate opt-in
 # file rather than part of the base compose.yaml.
@@ -35,3 +39,12 @@ services:
     volumes:
       - /mri2ct:/mri2ct
       - /projects/Mri2ct/ssd:/projects/Mri2ct/ssd
+      # Persistent, per-host home for uv project environments built by CI.
+      # Shared by every replica on this host (one env, not one per replica) and
+      # kept across runs, so the expensive first `uv sync` is paid once per host
+      # and reused after. Deliberately host-local rather than NFS: an env built
+      # on a network share ends up referencing an interpreter outside itself,
+      # which is exactly what broke when the fleet tried to reuse the shared
+      # env at /projects/Mri2ct/ssd/envs (its bin/python pointed into another
+      # user's home on a second export).
+      - /srv/github-runners/uv-envs:/opt/uv-envs
