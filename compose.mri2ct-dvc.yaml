@@ -1,27 +1,37 @@
-# Optional override: mount MRI2CT's shared DVC cache NFS share into every
-# replica, read/write, at the same path DVC itself expects (see
-# `.dvc/config` in target repos: `cache.dir = /mri2ct/dvc-cache`,
-# `cache.shared = group`).
+# Optional override: bind-mount the MRI2CT-specific host paths that mri2ct's
+# workflows expect to find. (Filename is historical -- it started as just the
+# DVC cache.) The host must already have these mounted; this file only exposes
+# what is already there to the container.
 #
-# Only needed for workflows that run `dvc checkout`/`dvc pull` directly on
-# this fleet WITHOUT a registry/S3 fallback (e.g. mri2ct's bundles.yml,
-# reg2d3d-api.yml) -- most repos/workflows don't need this at all, which is
-# why it's a separate opt-in file rather than part of the base compose.yaml.
+# 1. /mri2ct -- the shared DVC cache NFS share, at the same path DVC itself
+#    expects (see `.dvc/config`: `cache.dir = /mri2ct/dvc-cache`,
+#    `cache.shared = group`). Needed by workflows that run `dvc checkout` /
+#    `dvc pull` directly on the runner WITHOUT a registry/S3 fallback
+#    (mri2ct's bundles.yml, reg2d3d-api.yml).
 #
-# The host running this must already have /mri2ct mounted (NFS or
-# otherwise) -- this file does not mount it on the host, only bind-mounts
-# whatever is already there into the container.
+# 2. /projects/Mri2ct/ssd -- holds the shared, prebuilt uv CI environment that
+#    ci.yml points `UV_PROJECT_ENVIRONMENT` at (via `vars.CI_UV_ENV_NAME`,
+#    currently .../envs/env_ci_312). It is ~15 GB, so recreating it per host
+#    per run is not practical; the runner needs to see the real one. Without
+#    this mount, ci.yml's build job fails at "Pull DVC Data" with
+#    `dvc: command not found`, because dvc lives in that environment.
+#
+# Most repos/workflows need neither, which is why this is a separate opt-in
+# file rather than part of the base compose.yaml.
 #
 # Usage:
 #   docker compose -f compose.yaml -f compose.mri2ct-dvc.yaml up -d --build
-# Komodo: add this as an additional compose file path on the Stack
-# alongside compose.yaml.
+# Komodo: add this as an additional compose file path on the Stack alongside
+# compose.yaml.
 #
-# Note: this gives every replica of the fleet read/write access to the
-# whole shared /mri2ct data store, not just the DVC cache subdirectory --
-# only include this file for fleets whose label is restricted to workflows
-# that are meant to have that access.
+# Note: this gives every replica read/write access to the whole shared
+# /mri2ct store and the shared env tree, not just the subdirectories named
+# above -- only include this file for fleets whose label is restricted to
+# workflows meant to have that access. Also note Docker will silently create
+# an empty directory if a host is missing one of these mounts, so a host that
+# has not been prepared fails at use time rather than at deploy time.
 services:
   runner:
     volumes:
       - /mri2ct:/mri2ct
+      - /projects/Mri2ct/ssd:/projects/Mri2ct/ssd
