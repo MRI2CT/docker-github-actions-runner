@@ -104,17 +104,31 @@ The image ships with [`uv`](https://docs.astral.sh/uv/) preinstalled, and this c
 setup mounts a persistent host directory for its cache, shared by every replica in the
 fleet:
 
-- `UV_CACHE_DIR` — fixed container-side path (`/opt/uv-cache`), set automatically; not
-  something you configure.
-- `UV_CACHE_DIR_HOST` — the host-side path backing it (`.env`), must already exist.
+- `UV_CACHE_DIR_HOST` — the host path for the cache (`.env`), must already exist.
   Unlike `RUNNER_WORKDIR`, this **should** be the same single directory shared by every
   replica — `uv`'s cache is designed for safe concurrent access, and sharing it is what
   makes repeat installs fast across the whole fleet.
+- `UV_CACHE_DIR` — set automatically to the *same* path, because the cache is
+  bind-mounted at an identical host==container path. Not something you configure.
+- `UV_LINK_MODE` — set to `symlink`, so environments built from the cache point into it
+  instead of copying it.
+
+That last one is not cosmetic. `uv` normally hardlinks from the cache and falls back to
+copying, but the fallback fires unconditionally here: the cache and any environment
+built from it are separate bind mounts, and the kernel refuses hardlinks across mount
+points even on one filesystem (same `st_dev`, `ln` still returns `EXDEV`). The fallback
+is silent, so environments were being materialised in full — a 15 GB env duplicating a
+15 GB cache per host, re-copying a ~1 GB `libtorch` every time one was built. Symlinks
+cross mount points, which fixes it.
+
+The cost of symlink mode is that the cache's absolute path is written into every
+environment, so it must mean the same thing inside and outside the container — hence
+the identical host==container mount — and `uv cache prune` will break environments that
+point into what it removes.
 
 Any workflow step that runs `uv sync`, `uv pip install`, etc. benefits automatically —
-no workflow changes required. (These two variables aren't in the "Environment
-Variables" table below since they're consumed by `uv` inside job steps, not by
-`entrypoint.sh`.)
+no workflow changes required. (These variables aren't in the "Environment Variables"
+table below since they're consumed by `uv` inside job steps, not by `entrypoint.sh`.)
 
 ## Docker Artifacts ##
 

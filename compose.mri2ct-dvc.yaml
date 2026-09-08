@@ -47,4 +47,9 @@ services:
       # which is exactly what broke when the fleet tried to reuse the shared
       # env at /projects/Mri2ct/ssd/envs (its bin/python pointed into another
       # user's home on a second export).
-      - /srv/github-runners/uv-envs:/opt/uv-envs
+      #
+      # Same host==container path as the uv cache in compose.yaml, for the same
+      # reason: with UV_LINK_MODE=symlink the environment is mostly symlinks into
+      # the cache, and an environment holding absolute paths must live at a path
+      # that means the same thing inside and outside the container.
+      - /srv/github-runners/uv-envs:/srv/github-runners/uv-envs

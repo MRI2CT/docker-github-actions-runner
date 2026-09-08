@@ -45,13 +45,30 @@ services:
       DEBUG_ONLY: ${DEBUG_ONLY:-false}
       DEBUG_OUTPUT: ${DEBUG_OUTPUT:-false}
       UNSET_CONFIG_VARS: ${UNSET_CONFIG_VARS:-false}
-      # Consumed by `uv` inside job steps (not by entrypoint.sh). Fixed
-      # container-side path; only the host side is configurable, below.
-      UV_CACHE_DIR: /opt/uv-cache
+      # Consumed by `uv` inside job steps (not by entrypoint.sh). Bound at the
+      # same absolute path as the host -- see the volume below for why.
+      UV_CACHE_DIR: ${UV_CACHE_DIR_HOST:?set UV_CACHE_DIR_HOST in .env}
+      # Populate environments by symlinking into the cache instead of copying.
+      #
+      # uv's default is to hardlink, falling back to copy. Here that fallback
+      # always fires: the cache and any environment built from it are separate
+      # bind mounts, and the kernel refuses hardlinks across mount points even
+      # when both sit on the same filesystem (verified: same st_dev, `ln` still
+      # returns EXDEV). The fallback is silent, so environments were being
+      # materialised in full -- a 15 GB env duplicating a 15 GB cache on every
+      # host, with a ~1 GB libtorch copied byte for byte each time.
+      #
+      # Symlinks cross mount points, so this makes the environment a set of
+      # pointers into the cache. It does bake the cache's absolute path into
+      # site-packages, which is what the host==container mount below is for.
+      UV_LINK_MODE: symlink
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       # Shared by every replica; uv's cache is safe for concurrent access.
-      - ${UV_CACHE_DIR_HOST:?set UV_CACHE_DIR_HOST in .env}:/opt/uv-cache
+      # Mounted at an identical host==container path because UV_LINK_MODE=symlink
+      # writes this absolute path into every environment built from it, and those
+      # links have to resolve wherever the environment is read.
+      - ${UV_CACHE_DIR_HOST:?set UV_CACHE_DIR_HOST in .env}:${UV_CACHE_DIR_HOST:?set UV_CACHE_DIR_HOST in .env}
       # Shared parent dir for the whole fleet, bind-mounted at an identical
       # host==container path (required for container actions to resolve host
       # paths correctly). fleet-entrypoint.sh carves out a uniquely-named
